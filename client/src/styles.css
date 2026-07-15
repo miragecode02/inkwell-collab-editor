@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.editor-surface {
+  caret-color: #2B2A28;
+}
+.dark .editor-surface {
+  caret-color: #EDEBE7;
+}
+
+.remote-cursor {
+  position: absolute;
+  width: 2px;
+  pointer-events: none;
+  transition: left 80ms linear, top 80ms linear;
+}
+.remote-cursor-flag {
+  position: absolute;
+  top: -1.1em;
+  left: -1px;
+  font-size: 11px;
+  white-space: nowrap;
+  padding: 1px 6px;
+  border-radius: 3px 3px 3px 0;
+  color: white;
+  font-family: Inter, sans-serif;
+}

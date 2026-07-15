@@ -1,0 +1,46 @@
+import { RemoteCursor } from '../hooks/useCollabDoc';
+import { User } from '../api';
+
+interface Props {
+  user: User;
+  cursors: Record<string, RemoteCursor>;
+  connected: boolean;
+}
+
+function initials(name: string) {
+  return name
+    .split(' ')
+    .map((p) => p[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+}
+
+export function PresenceBar({ user, cursors, connected }: Props) {
+  const others = Object.values(cursors);
+  return (
+    <div className="flex items-center gap-3 font-sans text-sm">
+      <span className={`inline-block w-2 h-2 rounded-full ${connected ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+      <span className="text-ink/60 dark:text-ink-dark/60">{connected ? 'Live' : 'Connecting…'}</span>
+      <div className="flex -space-x-2 ml-2">
+        <div
+          title={`${user.displayName} (you)`}
+          className="w-7 h-7 rounded-full border-2 border-paper dark:border-paper-dark flex items-center justify-center text-[11px] font-semibold text-white"
+          style={{ backgroundColor: user.color }}
+        >
+          {initials(user.displayName)}
+        </div>
+        {others.map((c) => (
+          <div
+            key={c.socketId}
+            title={c.displayName}
+            className="w-7 h-7 rounded-full border-2 border-paper dark:border-paper-dark flex items-center justify-center text-[11px] font-semibold text-white"
+            style={{ backgroundColor: c.color }}
+          >
+            {initials(c.displayName)}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
