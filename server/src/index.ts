@@ -1,9 +1,10 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { authRouter, verifyToken } from './auth';
-import { pool, createDocument, listDocuments } from './db';
+import { pool, createDocument, listDocuments, getDocument } from './db';
 import { connectRedis } from './presence';
 import { attachSocketServer } from './socket';
 
@@ -27,6 +28,24 @@ app.get('/documents', requireAuth, async (req: any, res) => {
 
 app.post('/documents', requireAuth, async (req: any, res) => {
   const doc = await createDocument(req.userId, req.body?.title);
+  res.json(doc);
+});
+
+app.patch('/documents/:id', requireAuth, async (req: any, res) => {
+  const { title } = req.body ?? {};
+  if (!title || typeof title !== 'string') return res.status(400).json({ error: 'title required' });
+  await pool.query(
+    `UPDATE documents SET title = $1, updated_at = now() WHERE id = $2 AND owner_id = $3`,
+    [title.trim(), req.params.id, req.userId]
+  );
+  res.json({ ok: true });
+});
+
+// Fetch a single document — used by the editor when navigating directly to /doc/:id
+// (open-by-link: any authenticated user can read any document they have the URL for)
+app.get('/documents/:id', requireAuth, async (req: any, res) => {
+  const doc = await getDocument(req.params.id);
+  if (!doc) return res.status(404).json({ error: 'not found' });
   res.json(doc);
 });
 

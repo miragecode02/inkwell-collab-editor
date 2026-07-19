@@ -1,7 +1,7 @@
 import { Server, Socket } from 'socket.io';
 import { RgaDocument, RgaOp } from '@collab/crdt';
 import { verifyToken } from './auth';
-import { pool, loadDocumentOps, appendOperation, saveSnapshot } from './db';
+import { pool, loadDocumentOps, appendOperation, saveSnapshot, getDocument } from './db';
 import { joinPresence, leavePresence, updateCursor, listPresence, PresenceInfo } from './presence';
 
 // One live RgaDocument per actively-open document, kept in memory for
@@ -11,6 +11,21 @@ import { joinPresence, leavePresence, updateCursor, listPresence, PresenceInfo }
 // See db.ts / schema.sql for the event-sourcing side of this.
 const liveDocs = new Map<string, RgaDocument>();
 let opsSinceSnapshot = new Map<string, number>();
+
+// Per-document operation queue. The 'op' socket handler is async (it
+// awaits DB writes before broadcasting). Without serialisation, rapid
+// bursts from a single client can interleave their awaits in the event
+// loop, causing op 'e' (whose RGA origin is 'H') to be broadcast before
+// op 'H' is applied — breaking causal delivery. Queuing ops per-document
+// ensures every op is fully applied and broadcast before the next starts.
+const docOpQueues = new Map<string, Promise<void>>();
+
+function enqueueDocOp(documentId: string, fn: () => Promise<void>): void {
+  const prev = docOpQueues.get(documentId) ?? Promise.resolve();
+  // Chain on the previous promise. Even if prev rejects, we still run fn.
+  const next = prev.then(fn, fn);
+  docOpQueues.set(documentId, next);
+}
 
 async function getOrLoadDoc(documentId: string): Promise<RgaDocument> {
   const cached = liveDocs.get(documentId);
@@ -58,6 +73,13 @@ export function attachSocketServer(io: Server) {
 
   io.on('connection', (socket: AuthedSocket) => {
     socket.on('join-document', async ({ documentId, displayName, color }, ack) => {
+      // Verify the document exists before allowing access.
+      // Open-by-link: any authenticated user can join any document they know the ID of.
+      const docMeta = await getDocument(documentId);
+      if (!docMeta) {
+        ack?.({ error: 'document not found' });
+        return;
+      }
       const doc = await getOrLoadDoc(documentId);
       socket.currentDoc = documentId;
       socket.displayName = displayName;
@@ -74,21 +96,23 @@ export function attachSocketServer(io: Server) {
       await joinPresence(documentId, presenceInfo);
       const roster = await listPresence(documentId);
 
-      ack?.({ text: doc.getText(), presence: roster });
+      ack?.({ snapshot: doc.snapshot(), presence: roster });
       socket.to(`doc:${documentId}`).emit('presence-joined', presenceInfo);
     });
 
-    socket.on('op', async ({ documentId, op }: { documentId: string; op: RgaOp }) => {
+    socket.on('op', ({ documentId, op }: { documentId: string; op: RgaOp }) => {
       if (socket.currentDoc !== documentId) return; // must have joined first
-      const doc = await getOrLoadDoc(documentId);
-      doc.apply(op);
-      await appendOperation(documentId, socket.userId!, op);
-      await maybeSnapshot(documentId, doc);
-      // Broadcast to everyone else in the room. Every client applies
-      // the same op independently via the CRDT -- no server-side
-      // transform step needed, which is the whole point of using a
-      // CRDT instead of OT here.
-      socket.to(`doc:${documentId}`).emit('op', op);
+      enqueueDocOp(documentId, async () => {
+        const doc = await getOrLoadDoc(documentId);
+        doc.apply(op);
+        await appendOperation(documentId, socket.userId!, op);
+        await maybeSnapshot(documentId, doc);
+        // Broadcast to everyone else in the room. Every client applies
+        // the same op independently via the CRDT -- no server-side
+        // transform step needed, which is the whole point of using a
+        // CRDT instead of OT here.
+        socket.to(`doc:${documentId}`).emit('op', op);
+      });
     });
 
     socket.on('cursor', async ({ documentId, cursorIndex }: { documentId: string; cursorIndex: number }) => {

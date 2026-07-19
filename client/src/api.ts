@@ -48,4 +48,20 @@ export async function createDocument(title: string) {
   return r.json();
 }
 
+export async function renameDocument(id: string, title: string) {
+  const r = await fetch(`${API_BASE}/documents/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ title }),
+  });
+  if (!r.ok) throw new Error('failed to rename document');
+  return r.json();
+}
+
+export async function fetchDocument(id: string) {
+  const r = await fetch(`${API_BASE}/documents/${id}`, { headers: authHeaders() });
+  if (!r.ok) throw new Error('document not found');
+  return r.json() as Promise<{ id: string; title: string; owner_id: string }>;
+}
+
 export { API_BASE };

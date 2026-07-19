@@ -33,6 +33,18 @@ CREATE TABLE IF NOT EXISTS operations (
 );
 CREATE INDEX IF NOT EXISTS idx_operations_document ON operations(document_id, seq);
 
+-- Collaboration access: any user added here (or the owner) can edit the document.
+-- For the demo, documents are open-by-link — any authenticated user who has the
+-- URL can join a document in real time. This table is the foundation for a future
+-- invite-by-email flow without changing the socket/CRDT logic.
+CREATE TABLE IF NOT EXISTS document_collaborators (
+  document_id UUID NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+  user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  added_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (document_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_collaborators_user ON document_collaborators(user_id);
+
 -- Periodic snapshots so document load doesn't replay the full op log.
 CREATE TABLE IF NOT EXISTS snapshots (
   document_id   UUID PRIMARY KEY REFERENCES documents(id) ON DELETE CASCADE,

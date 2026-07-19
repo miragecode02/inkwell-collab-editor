@@ -196,7 +196,21 @@ export class RgaDocument {
         }
         insertAt++;
       } else {
-        break;
+        // Different origin. We must check whether the candidate is a descendant
+        // of a node that was already scanned past (i.e., sits "inside" the
+        // priority-chain of a sibling that sorts before the new op).
+        //
+        // If the candidate's own origin is at or before the original insertion
+        // anchor (originPos), it belongs to a different subtree and we stop.
+        // If it is strictly after originPos, it is a descendant of something we
+        // already walked past and we must skip over it so it stays together with
+        // its ancestor — otherwise concurrent multi-character edits at the same
+        // position produce non-convergent interleavings.
+        const candidateOriginPos = this.findPos(candidate.originId);
+        if (candidateOriginPos <= originPos) {
+          break;
+        }
+        insertAt++;
       }
     }
 

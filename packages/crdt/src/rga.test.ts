@@ -112,6 +112,31 @@ describe('RGA convergence under concurrency (the actual point of this project)',
     expect(new Set(a.getText())).toEqual(new Set('aBXc'));
   });
 
+  it('converges on concurrent multi-character inserts at the same position', () => {
+    // This is the critical case for a text editor: Alice types "Hello" and Bob
+    // types "World", both starting from an empty document, with zero network
+    // delivery between them (fully concurrent). Each character after the first
+    // is chained off the previous one (originId = previous char's id), so
+    // Alice's H→e→l→l→o and Bob's W→o→r→l→d are two independent chains both
+    // rooted at null. Without the "skip-descendant-chains" fix in applyInsert,
+    // the scan stops at the first different-origin node and inserts between H
+    // and e, producing "HWorldello" vs "HelloWorld" — non-convergent.
+    const alice = new RgaDocument('alice');
+    const bob = new RgaDocument('bob');
+
+    const aliceOps = alice.localInsert(0, 'Hello');
+    const bobOps = bob.localInsert(0, 'World');
+
+    // Cross-apply in both orders — this is the hard case
+    for (const op of bobOps) alice.apply(op);
+    for (const op of aliceOps) bob.apply(op);
+
+    expect(alice.getText()).toBe(bob.getText());
+    expect(alice.getText()).toContain('Hello');
+    expect(alice.getText()).toContain('World');
+    expect(alice.getText().length).toBe(10);
+  });
+
   it('handles a 5-way random-order stress case deterministically', () => {
     const sites = ['A', 'B', 'C', 'D', 'E'].map((s) => new RgaDocument(s));
     const allOps: RgaOp[] = [];

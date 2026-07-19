@@ -53,7 +53,7 @@ export function DocumentList({ user, onLogout }: { user: User; onLogout: () => v
           <ul className="divide-y divide-ink/10">
             {docs.map((d) => (
               <li key={d.id}>
-                <Link to={`/doc/${d.id}`} className="flex items-center justify-between py-3 hover:opacity-70">
+                <Link to={`/doc/${d.id}`} state={{ title: d.title }} className="flex items-center justify-between py-3 hover:opacity-70">
                   <span className="font-serif text-lg">{d.title}</span>
                   <span className="text-xs text-ink/40">{new Date(d.updated_at).toLocaleString()}</span>
                 </Link>

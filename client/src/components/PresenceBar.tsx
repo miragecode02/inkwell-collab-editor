@@ -1,10 +1,10 @@
-import { RemoteCursor } from '../hooks/useCollabDoc';
+import { RemoteCursor, ConnectionState } from '../hooks/useCollabDoc';
 import { User } from '../api';
 
 interface Props {
   user: User;
   cursors: Record<string, RemoteCursor>;
-  connected: boolean;
+  connectionState: ConnectionState;
 }
 
 function initials(name: string) {
@@ -16,12 +16,26 @@ function initials(name: string) {
     .toUpperCase();
 }
 
-export function PresenceBar({ user, cursors, connected }: Props) {
+const STATE_LABEL: Record<ConnectionState, string> = {
+  connecting: 'Connecting…',
+  live: 'Live',
+  reconnecting: 'Reconnecting…',
+  error: 'Connection failed',
+};
+
+const STATE_DOT: Record<ConnectionState, string> = {
+  connecting: 'bg-amber-500',
+  live: 'bg-emerald-500',
+  reconnecting: 'bg-amber-500 animate-pulse',
+  error: 'bg-red-500',
+};
+
+export function PresenceBar({ user, cursors, connectionState }: Props) {
   const others = Object.values(cursors);
   return (
     <div className="flex items-center gap-3 font-sans text-sm">
-      <span className={`inline-block w-2 h-2 rounded-full ${connected ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-      <span className="text-ink/60 dark:text-ink-dark/60">{connected ? 'Live' : 'Connecting…'}</span>
+      <span className={`inline-block w-2 h-2 rounded-full ${STATE_DOT[connectionState]}`} />
+      <span className="text-ink/60 dark:text-ink-dark/60">{STATE_LABEL[connectionState]}</span>
       <div className="flex -space-x-2 ml-2">
         <div
           title={`${user.displayName} (you)`}

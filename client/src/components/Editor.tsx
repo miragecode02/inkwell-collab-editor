@@ -6,6 +6,7 @@ interface Props {
   onChange: (newText: string) => void;
   onCursorMove: (index: number) => void;
   cursors: Record<string, RemoteCursor>;
+  textareaRef?: React.RefObject<HTMLTextAreaElement>;
 }
 
 const MIRROR_STYLE_PROPS: (keyof CSSStyleDeclaration)[] = [
@@ -51,8 +52,9 @@ function getCaretCoordinates(textarea: HTMLTextAreaElement, index: number): { to
   return { top, left };
 }
 
-export function Editor({ text, onChange, onCursorMove, cursors }: Props) {
-  const ref = useRef<HTMLTextAreaElement>(null);
+export function Editor({ text, onChange, onCursorMove, cursors, textareaRef }: Props) {
+  const internalRef = useRef<HTMLTextAreaElement>(null);
+  const ref = textareaRef ?? internalRef;
   const wrapRef = useRef<HTMLDivElement>(null);
   const [positions, setPositions] = useState<Record<string, { top: number; left: number }>>({});
 

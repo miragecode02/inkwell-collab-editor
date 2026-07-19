@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { RgaDocument, RgaOp } from '@collab/crdt';
+import { RgaDocument, RgaNode, RgaOp } from '@collab/crdt';
 import { API_BASE, User } from '../api';
 
 export interface RemoteCursor {
@@ -10,6 +10,8 @@ export interface RemoteCursor {
   color: string;
   cursorIndex: number | null;
 }
+
+export type ConnectionState = 'connecting' | 'live' | 'reconnecting' | 'error';
 
 /**
  * Diff two strings to a single insert or delete op. Real keystrokes are
@@ -47,7 +49,7 @@ export function useCollabDoc(documentId: string, user: User) {
   const docRef = useRef<RgaDocument>(new RgaDocument(`client-${user.id}-${Math.random().toString(36).slice(2, 8)}`));
   const socketRef = useRef<Socket | null>(null);
   const [text, setText] = useState('');
-  const [connected, setConnected] = useState(false);
+  const [connectionState, setConnectionState] = useState<ConnectionState>('connecting');
   const [cursors, setCursors] = useState<Record<string, RemoteCursor>>({});
   const lastKnownText = useRef('');
 
@@ -56,22 +58,24 @@ export function useCollabDoc(documentId: string, user: User) {
     const socket = io(API_BASE, { auth: { token } });
     socketRef.current = socket;
 
-    socket.on('connect', () => {
+    function joinDocument() {
       socket.emit(
         'join-document',
         { documentId, displayName: user.displayName, color: user.color },
-        (ack: { text: string; presence: any[] }) => {
-          docRef.current.loadSnapshot(
-            ack.text.split('').map((ch, i) => ({
-              id: { counter: i, site: 'seed' },
-              originId: i === 0 ? null : { counter: i - 1, site: 'seed' },
-              value: ch,
-              deleted: false,
-            }))
-          );
-          lastKnownText.current = ack.text;
-          setText(ack.text);
-          setConnected(true);
+        (ack: { snapshot: RgaNode[]; presence: any[] } | { error: string }) => {
+          if ('error' in ack) {
+            console.error('join-document error:', ack.error);
+            setConnectionState('error');
+            return;
+          }
+          // Load the real CRDT node graph from the server (not a synthesized string).
+          // This preserves tombstone/id history so concurrent ops from late joiners
+          // resolve correctly — the actual fix for the fake-seed-node bootstrap.
+          docRef.current.loadSnapshot(ack.snapshot);
+          lastKnownText.current = docRef.current.getText();
+          setText(lastKnownText.current);
+          setConnectionState('live');
+
           const roster: Record<string, RemoteCursor> = {};
           for (const p of ack.presence) {
             if (p.socketId === socket.id) continue;
@@ -86,6 +90,13 @@ export function useCollabDoc(documentId: string, user: User) {
           setCursors(roster);
         }
       );
+    }
+
+    socket.on('connect', () => {
+      // Fires on both initial connect and every reconnect.
+      // Re-joining resets CRDT state from the server's authoritative snapshot,
+      // which also discards any locally-applied ops that were never confirmed.
+      joinDocument();
     });
 
     socket.on('op', (op: RgaOp) => {
@@ -122,7 +133,16 @@ export function useCollabDoc(documentId: string, user: User) {
       );
     });
 
-    socket.on('disconnect', () => setConnected(false));
+    socket.on('disconnect', () => {
+      setConnectionState('reconnecting');
+      // Clear remote cursors — they'll repopulate from the presence roster on reconnect
+      setCursors({});
+    });
+
+    socket.on('connect_error', () => {
+      // Only show 'error' if we've never successfully connected; otherwise keep 'reconnecting'
+      setConnectionState((s) => (s === 'connecting' ? 'error' : 'reconnecting'));
+    });
 
     return () => {
       socket.disconnect();
@@ -144,5 +164,8 @@ export function useCollabDoc(documentId: string, user: User) {
     socketRef.current?.emit('cursor', { documentId, cursorIndex: index });
   }, [documentId]);
 
-  return { text, applyLocalChange, connected, cursors, sendCursor };
+  // Keep the old `connected` boolean for PresenceBar compatibility
+  const connected = connectionState === 'live';
+
+  return { text, applyLocalChange, connected, connectionState, cursors, sendCursor };
 }

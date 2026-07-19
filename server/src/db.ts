@@ -2,7 +2,7 @@ import { Pool } from 'pg';
 import { RgaOp, RgaNode } from '@collab/crdt';
 
 export const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/collab_editor',
+  connectionString: process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5433/collab_editor',
 });
 
 export async function appendOperation(documentId: string, userId: string, op: RgaOp) {
@@ -46,6 +46,14 @@ export async function createDocument(ownerId: string, title = 'Untitled document
     [ownerId, title]
   );
   return r.rows[0];
+}
+
+export async function getDocument(documentId: string) {
+  const r = await pool.query(
+    `SELECT id, title, owner_id, created_at, updated_at FROM documents WHERE id = $1`,
+    [documentId]
+  );
+  return r.rows[0] ?? null;
 }
 
 export async function listDocuments(userId: string) {
