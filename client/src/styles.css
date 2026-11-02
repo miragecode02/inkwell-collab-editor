@@ -26,3 +26,35 @@
   color: white;
   font-family: Inter, sans-serif;
 }
+
+.markup-preview {
+  min-height: 70vh;
+}
+.markup-preview p {
+  margin: 0 0 0.75em;
+}
+.markup-preview p:last-child {
+  margin-bottom: 0;
+}
+.markup-preview h2 {
+  font-weight: 600;
+  font-size: 1.3em;
+  margin: 1em 0 0.5em;
+}
+.markup-preview h2:first-child {
+  margin-top: 0;
+}
+.markup-preview ul,
+.markup-preview ol {
+  margin: 0 0 0.75em;
+  padding-left: 1.5em;
+}
+.markup-preview ul {
+  list-style: disc;
+}
+.markup-preview ol {
+  list-style: decimal;
+}
+.markup-preview li {
+  margin: 0.25em 0;
+}

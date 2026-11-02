@@ -6,12 +6,14 @@ import { Editor } from './Editor';
 import { Toolbar } from './Toolbar';
 import { PresenceBar } from './PresenceBar';
 import { User, renameDocument, fetchDocument } from '../api';
+import { renderMarkup } from '../markup';
 
 export function DocumentPage({ user }: { user: User }) {
   const { docId } = useParams();
   const location = useLocation();
   const { text, applyLocalChange, connected, connectionState, cursors, sendCursor } = useCollabDoc(docId!, user);
   const [dark, setDark] = useState(false);
+  const [preview, setPreview] = useState(false);
 
   const [title, setTitle] = useState<string>((location.state as any)?.title || 'Untitled document');
   const [editingTitle, setEditingTitle] = useState(false);
@@ -140,19 +142,34 @@ export function DocumentPage({ user }: { user: User }) {
           </div>
         </div>
         <div className="max-w-3xl mx-auto px-6">
-          <Toolbar onWrap={wrapSelection} onHeading={insertHeading} onLinePrefix={insertLinePrefix} dark={dark} onToggleDark={() => setDark((d) => !d)} />
+          <Toolbar
+            onWrap={wrapSelection}
+            onHeading={insertHeading}
+            onLinePrefix={insertLinePrefix}
+            dark={dark}
+            onToggleDark={() => setDark((d) => !d)}
+            preview={preview}
+            onTogglePreview={() => setPreview((p) => !p)}
+          />
         </div>
       </header>
 
       <main className="max-w-3xl mx-auto px-6 py-10">
         <div className="bg-surface dark:bg-surface-dark border border-ink/10 dark:border-ink-dark/10 rounded-xl shadow-paper dark:shadow-paper-dark px-10 py-10 sm:px-14">
-          <Editor
-            text={text}
-            onChange={applyLocalChange}
-            onCursorMove={sendCursor}
-            cursors={cursors}
-            textareaRef={editorRef}
-          />
+          {preview ? (
+            <div
+              className="markup-preview font-serif text-lg leading-relaxed text-ink dark:text-ink-dark"
+              dangerouslySetInnerHTML={{ __html: renderMarkup(text) }}
+            />
+          ) : (
+            <Editor
+              text={text}
+              onChange={applyLocalChange}
+              onCursorMove={sendCursor}
+              cursors={cursors}
+              textareaRef={editorRef}
+            />
+          )}
         </div>
       </main>
     </div>
