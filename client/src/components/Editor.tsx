@@ -103,7 +103,8 @@ export function Editor({ text, onChange, onCursorMove, cursors, textareaRef }: P
         onScroll={() => setPositions((p) => ({ ...p }))}
         spellCheck={false}
         className="editor-surface w-full min-h-[70vh] resize-none bg-transparent font-serif text-lg leading-relaxed
-                   outline-none border-none p-0 relative z-10"
+                   outline-none border-none p-0 relative z-10 text-ink dark:text-ink-dark
+                   placeholder:text-ink/30 dark:placeholder:text-ink-dark/30"
         placeholder="Start writing..."
       />
       <div className="pointer-events-none absolute inset-0 z-20 font-serif text-lg leading-relaxed">

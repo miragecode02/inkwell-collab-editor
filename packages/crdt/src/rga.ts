@@ -190,7 +190,7 @@ export class RgaDocument {
     while (insertAt < this.sequence.length) {
       const candidate = this.sequence[insertAt];
       if (idEquals(candidate.originId, op.originId)) {
-        if (idCompareDesc(candidate.id, op.id) < 0) {
+        if (idCompareDesc(candidate.id, op.id) > 0) {
           // candidate sorts AFTER op -> op goes before candidate, stop here
           break;
         }

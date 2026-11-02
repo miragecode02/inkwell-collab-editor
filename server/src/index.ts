@@ -4,7 +4,7 @@ import cors from 'cors';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { authRouter, verifyToken } from './auth';
-import { pool, createDocument, listDocuments, getDocument } from './db';
+import { pool, createDocument, listDocuments, getDocument, runMigrations } from './db';
 import { connectRedis } from './presence';
 import { attachSocketServer } from './socket';
 
@@ -65,6 +65,7 @@ attachSocketServer(io);
 const PORT = process.env.PORT || 4000;
 
 async function main() {
+  await runMigrations();
   await connectRedis();
   httpServer.listen(PORT, () => console.log(`collab-editor server listening on :${PORT}`));
 }

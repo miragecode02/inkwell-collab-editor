@@ -1,9 +1,23 @@
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { Pool } from 'pg';
 import { RgaOp, RgaNode } from '@collab/crdt';
 
+const databaseUrl = process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5433/collab_editor';
+
 export const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5433/collab_editor',
+  connectionString: databaseUrl,
+  // Managed Postgres providers (Render, Heroku, etc.) require SSL on their
+  // external connection string but ship a cert chain not in Node's default
+  // trust store. Local/docker-compose Postgres has no SSL at all.
+  ssl: /localhost|127\.0\.0\.1/.test(databaseUrl) ? undefined : { rejectUnauthorized: false },
 });
+
+/** Idempotent schema setup (CREATE TABLE/INDEX IF NOT EXISTS) — safe to run on every boot. */
+export async function runMigrations() {
+  const schema = readFileSync(join(__dirname, 'schema.sql'), 'utf8');
+  await pool.query(schema);
+}
 
 export async function appendOperation(documentId: string, userId: string, op: RgaOp) {
   await pool.query(

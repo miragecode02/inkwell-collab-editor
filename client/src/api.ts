@@ -38,16 +38,6 @@ export async function listDocuments() {
   return r.json();
 }
 
-export async function createDocument(title: string) {
-  const r = await fetch(`${API_BASE}/documents`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...authHeaders() },
-    body: JSON.stringify({ title }),
-  });
-  if (!r.ok) throw new Error('failed to create document');
-  return r.json();
-}
-
 export async function renameDocument(id: string, title: string) {
   const r = await fetch(`${API_BASE}/documents/${id}`, {
     method: 'PATCH',
@@ -55,6 +45,16 @@ export async function renameDocument(id: string, title: string) {
     body: JSON.stringify({ title }),
   });
   if (!r.ok) throw new Error('failed to rename document');
+  return r.json();
+}
+
+export async function createDocument(title: string) {
+  const r = await fetch(`${API_BASE}/documents`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ title }),
+  });
+  if (!r.ok) throw new Error('failed to create document');
   return r.json();
 }
 

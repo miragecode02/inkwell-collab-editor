@@ -137,6 +137,34 @@ describe('RGA convergence under concurrency (the actual point of this project)',
     expect(alice.getText().length).toBe(10);
   });
 
+  it('orders a later head-insert before an earlier one sharing the null origin', () => {
+    // Both "Hello world" and a subsequently-typed "- " prefix anchor to
+    // originId=null (the document head), since they're both the first
+    // character at their respective insertion point. The RGA ordering
+    // rule says siblings sharing an origin sort by id DESCENDING (higher
+    // counter first) — so the later "- " insert, despite sharing an
+    // origin with the much older 'H', must still land in front of it.
+    const doc = new RgaDocument('site-A');
+    doc.localInsert(0, 'Hello world');
+    doc.localInsert(0, '- ');
+    expect(doc.getText()).toBe('- Hello world');
+  });
+
+  it('converges when two replicas concurrently insert at the head of a shared, non-empty doc', () => {
+    const a = new RgaDocument('A');
+    const b = new RgaDocument('B');
+    const seed = a.localInsert(0, 'shared text');
+    for (const op of seed) b.applyInsert(op);
+
+    const opsA = a.localInsert(0, 'A-prefix ');
+    const opsB = b.localInsert(0, 'B-prefix ');
+    for (const op of opsB) a.applyInsert(op);
+    for (const op of opsA) b.applyInsert(op);
+
+    expect(a.getText()).toBe(b.getText());
+    expect(a.getText()).toContain('shared text');
+  });
+
   it('handles a 5-way random-order stress case deterministically', () => {
     const sites = ['A', 'B', 'C', 'D', 'E'].map((s) => new RgaDocument(s));
     const allOps: RgaOp[] = [];

@@ -1,0 +1,36 @@
+databases:
+  - name: inkwell-postgres
+    plan: free
+    databaseName: collab_editor
+    user: collab_editor
+
+services:
+  - type: web
+    name: inkwell-server
+    env: node
+    plan: free
+    buildCommand: npm install && npm run build --workspace=server
+    startCommand: npm start --workspace=server
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: inkwell-postgres
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+
+  - type: static
+    name: inkwell-client
+    buildCommand: npm install && npm run build --workspace=client
+    staticPublishPath: client/dist
+    envVars:
+      - key: VITE_API_BASE
+        fromService:
+          type: web
+          name: inkwell-server
+          envVarKey: RENDER_EXTERNAL_URL
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
